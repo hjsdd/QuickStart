@@ -50,7 +50,7 @@
             app:layout_constraintTop_toBottomOf="@id/self_video_container" />
     </FrameLayout>
 
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/bottom_bar"
         android:layout_width="match_parent"
         android:layout_height="60dp"
@@ -58,8 +58,10 @@
         android:paddingBottom="10dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
+
         <ImageView
             android:id="@+id/switch_local_audio"
+            android:layout_weight="1"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_gravity="center_vertical"
@@ -68,6 +70,7 @@
 
         <ImageView
             android:id="@+id/hang_up"
+            android:layout_weight="1"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_gravity="center"
@@ -75,12 +78,22 @@
 
         <ImageView
             android:id="@+id/switch_local_video"
+            android:layout_weight="1"
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_gravity="center_vertical|right"
             android:layout_marginRight="16dp"
             android:src="@drawable/normal_video" />
-    </FrameLayout>
+
+        <Switch
+            android:id="@+id/liveTranscoding"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:layout_weight="1"
+            android:text="Switch" />
+
+    </LinearLayout>
 
     <FrameLayout
         android:id="@+id/self_video_container"
@@ -89,7 +102,9 @@
         app:layout_constraintBottom_toTopOf="@id/remote_video_1_container"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toLeftOf="@id/remote_video_0_container"
-        app:layout_constraintTop_toBottomOf="@id/title_bar" />
+        app:layout_constraintTop_toBottomOf="@id/title_bar" >
+
+    </FrameLayout>
 
     <TextView
         android:id="@+id/self_video_user_id_tv"
@@ -99,6 +114,14 @@
         android:textSize="14dp"
         app:layout_constraintBottom_toBottomOf="@id/self_video_container"
         app:layout_constraintRight_toRightOf="@id/self_video_container" />
+
+    <TextView
+        android:id="@+id/self_onRoomStateChanged"
+        android:layout_width="101dp"
+        android:layout_height="24dp"
+        android:textColor="@color/purple_700"
+        app:layout_constraintBottom_toBottomOf="@+id/self_video_container"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <FrameLayout
         android:id="@+id/remote_video_0_container"
