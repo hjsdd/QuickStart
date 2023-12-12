@@ -1,10 +1,8 @@
 package com.ss.video.rtc.demo.quickstart;
 
 
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.telecom.Call;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.TextureView;
@@ -18,9 +16,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import com.ss.bytertc.engine.IAudioFrameObserver;
-import com.ss.bytertc.engine.RTCEngine;
 import com.ss.bytertc.engine.RTCRoom;
 import com.ss.bytertc.engine.RTCRoomConfig;
 import com.ss.bytertc.engine.RTCVideo;
@@ -36,14 +32,9 @@ import com.ss.bytertc.engine.data.CameraId;
 import com.ss.bytertc.engine.data.RemoteStreamKey;
 import com.ss.bytertc.engine.data.StreamIndex;
 import com.ss.bytertc.engine.data.VideoFrameInfo;
-import com.ss.bytertc.engine.handler.IRTCEngineEventHandler;
 import com.ss.bytertc.engine.handler.IRTCVideoEventHandler;
-import com.ss.bytertc.engine.live.ByteRTCStreamMixingEvent;
-import com.ss.bytertc.engine.live.ByteRTCStreamMixingType;
-import com.ss.bytertc.engine.live.ByteRTCTranscoderErrorCode;
 import com.ss.bytertc.engine.live.ILiveTranscodingObserver;
 import com.ss.bytertc.engine.live.LiveTranscoding;
-import com.ss.bytertc.engine.type.AudioProfileType;
 import com.ss.bytertc.engine.type.ChannelProfile;
 import com.ss.bytertc.engine.type.MediaDeviceError;
 import com.ss.bytertc.engine.type.MediaStreamType;
@@ -51,13 +42,10 @@ import com.ss.bytertc.engine.type.VideoDeviceType;
 import com.ss.bytertc.engine.utils.IAudioFrame;
 import com.ss.rtc.demo.quickstart.R;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.webrtc.VideoFrame;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -136,34 +124,7 @@ public class RTCRoomActivity extends AppCompatActivity {
 
     private boolean mIsRTCTranscoding = false;
 
-    private final ILiveTranscodingObserver mILiveTranscodingObserver = new ILiveTranscodingObserver(){
-
-        @Override
-        public boolean isSupportClientPushStream() {
-            return false;
-        }
-
-        @Override
-        public void onStreamMixingEvent(ByteRTCStreamMixingEvent eventType, String taskId, ByteRTCTranscoderErrorCode error, ByteRTCStreamMixingType mixType) {
-            Log.d("TranscodingObserver","eventType: "+ eventType.toString());
-            Log.d("TranscodingObserver","error: "+ error.toString());
-        }
-
-        @Override
-        public void onMixingAudioFrame(String taskId, byte[] audioFrame, int frameNum) {
-
-        }
-
-        @Override
-        public void onMixingVideoFrame(String taskId, VideoFrame videoFrame) {
-
-        }
-
-        @Override
-        public void onDataFrame(String taskId, byte[] dataFrame, long time) {
-
-        }
-    };
+    private final ILiveTranscodingObserver mILiveTranscodingObserver = new VideoTranscodingObserverAdapter();
 
     private IAudioFrameObserver mAudioFrameObserver = new IAudioFrameObserver() {
         @Override
@@ -188,22 +149,6 @@ public class RTCRoomActivity extends AppCompatActivity {
         }
     };
     private RTCRoomEventHandlerAdapter mIRtcRoomEventHandler = new RTCRoomEventHandlerAdapter() {
-
-        /**
-         * 远端主播角色用户加入房间回调。
-         */
-        @Override
-        public void onRoomStateChanged(String roomId, String uid, int state, String extraInfo) {
-            super.onRoomStateChanged(roomId, uid, state, extraInfo);
-            self_onRoomStateChanged.setText(String.format("onRoomState:%s",state ));
-            Log.d("IRTCRoomEventHandler", "onRoomStateChanged: " + state);
-        }
-        @Override
-        public void onUserJoined(UserInfo userInfo, int elapsed) {
-            super.onUserJoined(userInfo, elapsed);
-            Log.d("IRTCRoomEventHandler", "onUserJoined: " + userInfo.getUid());
-        }
-
         /**
          * 远端用户离开房间回调。
          */
@@ -214,6 +159,11 @@ public class RTCRoomActivity extends AppCompatActivity {
             runOnUiThread(() -> removeRemoteView(uid));
 
             startOrStopRTCTranscoding();
+        }
+        //super.onRoomStateChanged(roomId, uid, state, extraInfo);
+        public void onRoomStateChanged(String roomId, String uid, int state, String extraInfo) {
+            self_onRoomStateChanged.setText(String.format("onRoomState:%s",state ));
+            Log.d("IRTCRoomEventHandler", "onRoomStateChanged: " + state);
         }
     };
 
@@ -238,7 +188,8 @@ public class RTCRoomActivity extends AppCompatActivity {
             Log.d("IRTCVideoEventHandler", "onFirstRemoteVideoFrame: " + remoteStreamKey.toString());
             runOnUiThread(() -> setRemoteView(remoteStreamKey.getRoomId(), remoteStreamKey.getUserId()));
             if (mliveTranscodingIv.isChecked()){
-                startOrUpdateSingleRTCTranscoding(createPK1v1LiveTranscodingConfig(mRoomId,localUserId,remoteStreamKey.getUserId()));
+                VideoTranscoding mVideoTranscoding = new VideoTranscoding();
+                startOrUpdateSingleRTCTranscoding(mVideoTranscoding.createPK1v1LiveTranscodingConfig(mRoomId,localUserId,remoteStreamKey.getUserId()));
             }//added by Connor
         }
         /* 公共流的首帧视频解码成功
@@ -447,10 +398,11 @@ public class RTCRoomActivity extends AppCompatActivity {
         if (mliveTranscodingIv.isChecked()) {
             Log.i("mliveTranscodingIv",mliveTranscodingIv.toString());
             LiveTranscoding mLiveTranscoding;
+            VideoTranscoding mVideoTranscoding = new VideoTranscoding();
             if (mShowUidArray[1] != null) {
-                mLiveTranscoding = createPK1v1LiveTranscodingConfig(mRoomId,localUserId,mShowUidArray[1]);
+                mLiveTranscoding = mVideoTranscoding.createPK1v1LiveTranscodingConfig(mRoomId,localUserId,mShowUidArray[1]);
             }else{
-                mLiveTranscoding = createSingleLiveTranscodingConfig(mRoomId,localUserId);
+                mLiveTranscoding = mVideoTranscoding.createSingleLiveTranscodingConfig(mRoomId,localUserId);
             }
             startOrUpdateSingleRTCTranscoding(mLiveTranscoding);
         }else {
@@ -470,91 +422,6 @@ public class RTCRoomActivity extends AppCompatActivity {
         }
     }
 
-    private LiveTranscoding createSingleLiveTranscodingConfig(String roomId, String userId) {
-
-        final String pushUrl = "rtmp://push.hafun.xyz/live/test?expire=1709212545&sign=d04e0315d7f325c25efe6c83c2ab8694";
-
-        LiveTranscoding liveTranscoding = LiveTranscoding.getDefualtLiveTranscode();
-        // set room id
-        liveTranscoding.setRoomId(roomId);
-        // Set the live address of push stream
-        liveTranscoding.setUrl(pushUrl);
-        // Set the merge mode, 0 means server merge
-        liveTranscoding.setMixType(ByteRTCStreamMixingType.STREAM_MIXING_BY_SERVER);
-        LiveTranscoding.VideoConfig videoConfig = liveTranscoding.getVideo()
-                .setWidth(720)
-                .setHeight(1280)
-                .setFps(15)
-                .setKBitRate(1600);
-        liveTranscoding.setVideo(videoConfig);
-        // Set the live transcoding audio parameters, the specific parameters depend on the situation
-        LiveTranscoding.AudioConfig audioConfig = liveTranscoding.getAudio()
-                .setSampleRate(44100)
-                .setChannels(2);
-        liveTranscoding.setAudio(audioConfig);
-        // Set live transcoding video layout parameters
-        LiveTranscoding.Region region = new LiveTranscoding.Region()
-                .uid(userId)
-                .setLocalUser(true)
-                .roomId(roomId)
-                .position(0, 0)
-                .size(1, 1)
-                .alpha(1)
-                .zorder(0)
-                .renderMode(LiveTranscoding.TranscoderRenderMode.RENDER_HIDDEN);
-
-        LiveTranscoding.Layout layout = new LiveTranscoding.Layout.Builder()
-                .addRegion(region)
-                .builder();
-        liveTranscoding.setLayout(layout);
-
-        return liveTranscoding;
-    }
-
-    private LiveTranscoding createPK1v1LiveTranscodingConfig(String roomId, String userId, String coHostUserId) {
-
-        final String pushUrl = "rtmp://push.hafun.xyz/live/test?expire=1709212545&sign=d04e0315d7f325c25efe6c83c2ab8694";
-
-        LiveTranscoding liveTranscoding = LiveTranscoding.getDefualtLiveTranscode();
-        liveTranscoding.setRoomId(roomId);
-        liveTranscoding.setUrl(pushUrl);
-        liveTranscoding.setMixType(ByteRTCStreamMixingType.STREAM_MIXING_BY_SERVER);
-
-        LiveTranscoding.VideoConfig videoConfig = liveTranscoding.getVideo()
-                .setWidth(720)
-                .setHeight(1080)
-                .setFps(15)
-                .setKBitRate(1600);
-        liveTranscoding.setVideo(videoConfig);
-
-        LiveTranscoding.AudioConfig audioConfig = liveTranscoding.getAudio()
-                .setSampleRate(44100)
-                .setChannels(2);
-        liveTranscoding.setAudio(audioConfig);
-
-        LiveTranscoding.Layout.Builder layoutBuilder = new LiveTranscoding.Layout.Builder();
-
-        LiveTranscoding.Region selfRegion = new LiveTranscoding.Region()
-                .uid(userId)
-                .setLocalUser(true)
-                .roomId(roomId)
-                .position(0, 0.25)
-                .size(0.5, 0.5)
-                .alpha(1)
-                .zorder(0);
-        layoutBuilder.addRegion(selfRegion);
-
-        LiveTranscoding.Region hostRegion = new LiveTranscoding.Region()
-                .uid(coHostUserId)
-                .roomId(roomId)
-                .position(0.5, 0.25)
-                .size(0.5, 0.5)
-                .alpha(1)
-                .zorder(0);
-        layoutBuilder.addRegion(hostRegion);
-        liveTranscoding.setLayout(layoutBuilder.builder());
-        return liveTranscoding;
-    }
 
     private void setLocalRenderView(String uid) {
         VideoCanvas videoCanvas = new VideoCanvas();
